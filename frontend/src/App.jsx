@@ -1,19 +1,24 @@
-import './App.css'
+import { Routes, Route } from "react-router-dom";
 
-import HeaderC from './components/HeaderSection';
-import HeroSection from './components/HeroSection';
-import FeaturesSection from './components/FeaturesSection';
-import Footer from './components/Footer';
-import FloatingChatbot from './components/FloatingChatbot';
+import Navbar from "./components/Navbar";
+import Home from "./pages/Home";
+import AskAi from "./pages/AskAi";
+import Login from "./pages/Login";
+import Footer from "./components/Footer";
 
 function App() {
   return (
     <div className="App">
-      <HeaderC />
-      <HeroSection />
-      <FeaturesSection />
+      {/* Navbar visible on all pages */}
+      <Navbar />
+
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/askai" element={<AskAi />} />
+        <Route path="/login" element={<Login />} />
+      </Routes>
+
       <Footer />
-      <FloatingChatbot />
     </div>
   );
 }

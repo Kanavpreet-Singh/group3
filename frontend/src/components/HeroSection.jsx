@@ -1,26 +1,27 @@
-const HeroSection = () => {
+export default function HeroSection() {
   return (
-    <section id="home" className="pt-16 min-h-screen flex items-center bg-gradient-to-br from-blue-50 to-purple-50">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-4xl mx-auto">
-          <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
-            Your Mental Health <span className="text-primary">Matters</span>
-          </h1>
-          <p className="text-xl md:text-2xl text-gray-600 mb-8 leading-relaxed">
-            A comprehensive digital platform designed to provide immediate, accessible, and personalised mental health support for university students. This innovative system combines artificial intelligence, peer support networks, and professional resources to create a holistic approach to student wellbeing.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button className="px-8 py-4 bg-primary text-white text-lg font-semibold rounded-lg hover:bg-blue-600 transition-colors shadow-lg">
-              Get Started
-            </button>
-            <button className="px-8 py-4 border-2 border-primary text-primary text-lg font-semibold rounded-lg hover:bg-primary hover:text-white transition-colors">
-              Learn More
-            </button>
-          </div>
+    <section className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
+      <div className="absolute inset-0 bg-gradient-to-b from-blue-900/20 to-transparent rounded-3xl"></div>
+      <div className="relative z-10">
+        <div className="inline-block bg-yellow-500/20 border border-yellow-500/40 rounded-full px-4 py-2 mb-6">
+          <span className="text-yellow-300 text-sm font-medium">🌟 Trusted by 50+ Universities</span>
+        </div>
+        <h1 className="text-5xl md:text-7xl font-bold text-yellow-500 mb-6 leading-tight">
+          Welcome to <br />
+          <span className="text-yellow-400">CalmConnect</span>
+        </h1>
+        <p className="text-gray-300 text-xl md:text-2xl max-w-3xl mx-auto mb-8 leading-relaxed">
+          Your trusted mental health companion on campus. AI-guided support, peer networks, and professional help — all in one place.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+          <button className="bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-4 px-8 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg">
+            Get Started Today
+          </button>
+          <button className="border-2 border-blue-500 hover:bg-blue-500 text-blue-400 hover:text-white font-bold py-4 px-8 rounded-full transition-all duration-300">
+            Watch Demo
+          </button>
         </div>
       </div>
     </section>
   );
-};
-
-export default HeroSection;
+}
