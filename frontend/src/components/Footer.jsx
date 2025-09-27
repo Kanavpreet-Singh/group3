@@ -73,7 +73,7 @@ export default function Footer() {
         </div>
         <div className="border-t border-[#0B0C10] mt-8 pt-8 text-center text-[#A0AEC0]">
           <p>
-            &copy; {new Date().getFullYear()} CalmConnect. All rights reserved. | Made with care for student wellbeing
+            &copy; {new Date().getFullYear()} NeuroCare. All rights reserved. | Made with care for student wellbeing
           </p>
         </div>
       </div>

@@ -47,7 +47,7 @@ export default function Home() {
   const testimonials = [
     {
       quote:
-        "CalmConnect helped me through my toughest semester. The AI support was there when I needed it most at 2 AM.",
+        "NeuroCare helped me through my toughest semester. The AI support was there when I needed it most at 2 AM.",
       author: "Sarah M.",
       role: "Psychology Student",
     },

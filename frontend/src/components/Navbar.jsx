@@ -12,7 +12,7 @@ export default function Navbar() {
           
           {/* Logo / Site Name */}
           <div className="flex-shrink-0 text-xl font-bold text-yellow-500">
-            <Link to="/home">CalmConnect</Link>
+            <Link to="/home">NeuroCare</Link>
           </div>
 
           {/* Desktop Menu */}

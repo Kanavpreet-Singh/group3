@@ -8,7 +8,7 @@ export default function HeroSection() {
         </div>
         <h1 className="text-5xl md:text-7xl font-bold text-yellow-500 mb-6 leading-tight">
           Welcome to <br />
-          <span className="text-yellow-400">CalmConnect</span>
+          <span className="text-yellow-400">NeuroCare</span>
         </h1>
         <p className="text-gray-300 text-xl md:text-2xl max-w-3xl mx-auto mb-8 leading-relaxed">
           Your trusted mental health companion on campus. AI-guided support, peer networks, and professional help — all in one place.
