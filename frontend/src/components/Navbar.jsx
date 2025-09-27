@@ -32,7 +32,9 @@ export default function Navbar() {
             )}
             {isLoggedIn && (
               <>
+
                 <span className="text-green-400 font-semibold">
+                  {currentUser?.role}-
                   {currentUser?.name}
                 </span>
                 <button
@@ -68,7 +70,7 @@ export default function Navbar() {
           )}
           {isLoggedIn && (
             <>
-              <span className="block text-green-400 font-semibold">{currentUser?.name}</span>
+              <span className="block text-green-400 font-semibold">{currentUser?.role}-{currentUser?.name}</span>
               <button
                 onClick={handleLogout}
                 className="block text-red-400 font-semibold w-full text-left"
