@@ -1,9 +1,14 @@
 "use client"
 
-const PreviousConversations = ({ conversations = [], currentConversationId, onSelectConversation, onDeleteConversation }) => {
+const PreviousConversations = ({ 
+  conversations = [], 
+  onSelectConversation, 
+  onDeleteConversation,
+  currentConversationId 
+}) => {
   return (
-    <div className="w-64 h-full p-4 space-y-3 overflow-y-auto bg-blue text-white">
-      <h2 className="text-lg font-bold mb-4 text-yellow">Previous Chats</h2>
+    <div className="w-64 h-full p-4 space-y-3 bg-blue text-white overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent hover:scrollbar-thumb-white/20">
+      <h2 className="text-lg font-bold mb-4 text-yellow sticky top-0 bg-blue z-10 pb-2">Previous Chats</h2>
       {conversations.length > 0 ? (
         conversations.map((conv) => (
           <div key={conv.id} className="flex items-center gap-2 mb-2">
@@ -11,8 +16,8 @@ const PreviousConversations = ({ conversations = [], currentConversationId, onSe
               onClick={() => onSelectConversation(conv)}
               className={`flex-1 text-left px-3 py-2 rounded-lg transition-all ${
                 currentConversationId === conv.id 
-                ? 'bg-yellow/60 text-black'
-                : 'hover:bg-yellow hover:text-black'
+                  ? 'bg-yellow/10 text-yellow border border-yellow/30' 
+                  : 'hover:bg-yellow hover:text-black'
               }`}
             >
               {conv.title || "Untitled Conversation"}

@@ -3,6 +3,7 @@ import google.generativeai as genai
 from textblob import TextBlob
 from dotenv import load_dotenv
 import os
+from flask_cors import CORS
 
 # Load environment variables
 load_dotenv()
@@ -12,6 +13,7 @@ genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel('gemini-2.5-flash')
 
 app = Flask(__name__)
+CORS(app)
 
 # Sentiment analysis
 def analyze_sentiment(text):
