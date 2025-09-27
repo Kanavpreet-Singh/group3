@@ -3,3 +3,8 @@ flask-cors
 textblob
 google-generativeai
 python-dotenv
+sentence-transformers
+langchain
+langchain-community
+langchain-groq
+chromadb
