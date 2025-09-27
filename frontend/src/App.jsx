@@ -3,8 +3,10 @@ import { Routes, Route } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
 import AskAi from "./pages/AskAi";
-import Login from "./pages/Login";
+
 import Footer from "./components/Footer";
+import Signin from "./pages/Signin";
+import Signup from "./pages/Signup";
 
 function App() {
   return (
@@ -15,7 +17,8 @@ function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/askai" element={<AskAi />} />
-        <Route path="/login" element={<Login />} />
+        <Route path="/signin" element={<Signin />} />
+        <Route path="/signup" element={<Signup />} />
       </Routes>
 
       <Footer />
