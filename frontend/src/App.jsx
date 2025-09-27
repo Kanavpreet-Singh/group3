@@ -7,6 +7,7 @@ import AskAi from "./pages/AskAi";
 import Footer from "./components/Footer";
 import Signin from "./pages/Signin";
 import Signup from "./pages/Signup";
+import Blogs from "./pages/Blogs";
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
         <Route path="/askai" element={<AskAi />} />
         <Route path="/signin" element={<Signin />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/blogs" element={<Blogs />} />
       </Routes>
 
       <Footer />

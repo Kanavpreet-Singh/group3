@@ -4,6 +4,7 @@ require('dotenv').config();
 const { Pool } = require('pg'); 
 const userRoutes = require('./routes/userRoutes');
 const chatRoutes = require('./routes/chatRoutes');
+const blogRoutes = require('./routes/blogRoutes');
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -41,3 +42,4 @@ app.listen(port, () => {
 
 app.use('/api/users', userRoutes);
 app.use('/api/chats', chatRoutes);
+app.use('/api/blogs', blogRoutes);

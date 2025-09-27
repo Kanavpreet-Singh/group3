@@ -24,6 +24,7 @@ export default function Navbar() {
           <div className="hidden md:flex space-x-8 text-gray-400 items-center">
             <Link to="/" className="hover:text-yellow-400 transition">Home</Link>
             <Link to="/askai" className="hover:text-yellow-400 transition">AskAI</Link>
+            <Link to="/blogs" className="hover:text-yellow-400 transition">Blogs</Link>
             {!isLoggedIn && (
               <>
                 <Link to="/signup" className="hover:text-yellow-400 transition">Signup</Link>
@@ -62,6 +63,7 @@ export default function Navbar() {
         <div className="md:hidden bg-black px-4 py-3 space-y-2">
           <Link to="/" className="block text-gray-400 hover:text-yellow-400 transition">Home</Link>
           <Link to="/askai" className="block text-gray-400 hover:text-yellow-400 transition">AskAI</Link>
+          <Link to="/blogs" className="block text-gray-400 hover:text-yellow-400 transition">Blogs</Link>
           {!isLoggedIn && (
             <>
               <Link to="/signup" className="block text-gray-400 hover:text-yellow-400 transition">Signup</Link>
