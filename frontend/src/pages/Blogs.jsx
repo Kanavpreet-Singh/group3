@@ -50,10 +50,13 @@ const Blogs = () => {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [newBlog, setNewBlog] = useState({ title: '', content: '' })
   const [creating, setCreating] = useState(false)
+  const [comments, setComments] = useState([])
+  const [newComment, setNewComment] = useState('')
+  const [addingComment, setAddingComment] = useState(false)
   
   const token = localStorage.getItem('token')
 
-  // Fetch all blogs
+  // Fetch all blogs with comment counts
   useEffect(() => {
     const fetchBlogs = async () => {
       try {
@@ -176,7 +179,21 @@ const Blogs = () => {
           {blogs.map((blog) => (
             <div 
               key={blog.id}
-              onClick={() => setSelectedBlog(blog)}
+              onClick={async () => {
+                setSelectedBlog(blog)
+                setComments([]) // Clear existing comments
+                try {
+                  const response = await fetch(`${API_BASE}/api/blogs/${blog.id}/comments`)
+                  if (response.ok) {
+                    const data = await response.json()
+                    setComments(data)
+                  } else {
+                    console.error('Failed to fetch comments')
+                  }
+                } catch (error) {
+                  console.error('Error fetching comments:', error)
+                }
+              }}
               className="group bg-blue-900/40 backdrop-blur-sm p-8 rounded-2xl border border-gray/20 
                 hover:border-yellow/50 transition-all duration-300 cursor-pointer 
                 hover:shadow-lg hover:shadow-yellow/10 transform hover:-translate-y-1"
@@ -246,6 +263,101 @@ const Blogs = () => {
               >
                 Close
               </button>
+            </div>
+
+            {/* Comments Section */}
+            <div className="mt-8 pt-6 border-t border-gray/20">
+              <h3 className="text-xl font-bold text-yellow mb-6">Comments</h3>
+              
+              {/* Add Comment Form */}
+              {token && (
+                <form 
+                  onSubmit={async (e) => {
+                    e.preventDefault()
+                    if (!newComment.trim()) return
+
+                    setAddingComment(true)
+                    try {
+                      const response = await fetch(`${API_BASE}/api/blogs/comment/${selectedBlog.id}`, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          token
+                        },
+                        body: JSON.stringify({ content: newComment })
+                      })
+
+                      if (response.ok) {
+                        const data = await response.json()
+                        setComments(prev => [data.comment, ...prev])
+                        setNewComment('')
+                      }
+                    } catch (error) {
+                      console.error('Error adding comment:', error)
+                    } finally {
+                      setAddingComment(false)
+                    }
+                  }}
+                  className="mb-6"
+                >
+                  <div className="flex gap-4">
+                    <input
+                      type="text"
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      placeholder="Add a comment..."
+                      className="flex-1 rounded-xl border border-gray/20 bg-black/50 backdrop-blur-sm px-4 py-3 
+                        text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow/50 
+                        hover:border-gray/40 transition-colors"
+                    />
+                    <button
+                      type="submit"
+                      disabled={addingComment || !newComment.trim()}
+                      className="bg-gradient-to-r from-yellow to-yellow-400 text-black px-6 py-3 rounded-xl font-bold 
+                        hover:shadow-lg hover:shadow-yellow/20 active:scale-95 transform transition-all duration-200 
+                        disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none
+                        flex items-center gap-2"
+                    >
+                      {addingComment ? (
+                        <>
+                          <span className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"></span>
+                          Posting...
+                        </>
+                      ) : (
+                        'Post'
+                      )}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* Comments List */}
+              <div className="space-y-4">
+                {comments.length > 0 ? (
+                  comments.map((comment) => (
+                    <div 
+                      key={comment.id}
+                      className="bg-black/30 rounded-xl p-4 backdrop-blur-sm border border-gray/10"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-yellow-400 font-medium">
+                          {comment.commenter_name}
+                        </span>
+                        <span className="text-sm text-gray-400">
+                          {new Date(comment.created_at).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric'
+                          })}
+                        </span>
+                      </div>
+                      <p className="text-gray-300">{comment.content}</p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-400 text-center italic">No comments yet</p>
+                )}
+              </div>
             </div>
           </div>
           <div 
