@@ -8,6 +8,9 @@ import json
 import google.generativeai as genai
 from textblob import TextBlob
 
+# Cohere for summarization
+import cohere
+
 # LangChain / Doctor Query imports
 from sentence_transformers import SentenceTransformer
 from langchain.schema import Document
@@ -20,10 +23,12 @@ from langchain_groq import ChatGroq
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+COHERE_API_KEY = os.getenv("COHERE_API_KEY")
 
 # Configure APIs
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel('gemini-2.5-flash')
+co = cohere.ClientV2(COHERE_API_KEY)  # Initialize Cohere client
 os.environ['GROQ_API_KEY'] = GROQ_API_KEY
 
 # Flask app
@@ -100,6 +105,64 @@ def load_or_create_vectorstore(doctors_list):
         vectordb.persist()
 
     return vectordb
+
+@app.route('/api/summarize', methods=['POST'])
+def summarize_text():
+    try:
+        data = request.json
+        raw_text = data.get("raw_text", "")
+
+        prompt = f"""
+        Summarize this doctor-patient conversation. 
+        Provide output in the following JSON format ONLY:
+
+        {{
+            "title": "A concise descriptive title for the conversation",
+            "content": "A summarized version of the conversation"
+        }}
+
+        Conversation:
+        {raw_text}
+        """
+
+        # Call Cohere Chat API
+        response = co.chat(
+            model="command-a-03-2025",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.4,
+            max_tokens=800
+        )
+
+        # Extract generated text
+        if isinstance(response.message.content, list):
+            summary_text = " ".join([item.text for item in response.message.content])
+        else:
+            summary_text = response.message.content.text
+
+        # Remove any ```json or ``` code blocks
+        cleaned_text = summary_text.replace("```json", "").replace("```", "").strip()
+
+        # Parse JSON safely
+        import json
+        try:
+            summary_json = json.loads(cleaned_text)
+            title = summary_json.get("title", "")
+            content = summary_json.get("content", "")
+        except json.JSONDecodeError:
+            # fallback
+            title = "Summary Title"
+            content = cleaned_text
+
+        # Return clean JSON
+        return jsonify({
+            "title": title,
+            "content": content
+        })
+
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
 
 @app.route('/query', methods=['POST'])
 def query_doctors():
