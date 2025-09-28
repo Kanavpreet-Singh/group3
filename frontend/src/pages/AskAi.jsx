@@ -4,6 +4,7 @@ import { useState, useContext, useEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import { AuthContext } from "../context/AuthContext"
 import PreviousConversations from "../components/PreviousConversations"
+import jsPDF from 'jspdf'
 
 const API_BASE = import.meta.env.VITE_API_URL // Node.js backend
 const AI_API = "http://localhost:5001/api/ai-response" // Flask AI API
@@ -71,6 +72,62 @@ const AskAi = () => {
       }
     } catch (err) {
       console.error("Error deleting conversation:", err)
+    }
+  }
+
+  const downloadConversationAsPDF = () => {
+    if (!messages.length) return;
+
+    try {
+      const pdf = new jsPDF();
+      const lineHeight = 10;
+      let yPosition = 20;
+
+      // Add title
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(16);
+      pdf.text("NeuroCare AI Conversation", 20, yPosition);
+      yPosition += lineHeight * 2;
+
+      // Add timestamp
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(12);
+      pdf.text(`Generated on: ${new Date().toLocaleString()}`, 20, yPosition);
+      yPosition += lineHeight * 2;
+
+      // Add messages
+      pdf.setFontSize(11);
+      messages.forEach((msg) => {
+        if (msg.typing) return; // Skip typing indicators
+
+        // Add sender
+        pdf.setFont("helvetica", "bold");
+        const sender = msg.sender === "user" ? "You" : "NeuroCare AI";
+        pdf.text(`${sender}:`, 20, yPosition);
+        yPosition += lineHeight;
+
+        // Add message text
+        pdf.setFont("helvetica", "normal");
+        const messageLines = pdf.splitTextToSize(msg.text, 170); // Split long messages
+        messageLines.forEach(line => {
+          // Check if we need a new page
+          if (yPosition > 280) {
+            pdf.addPage();
+            yPosition = 20;
+          }
+          pdf.text(line, 20, yPosition);
+          yPosition += lineHeight;
+        });
+
+        yPosition += lineHeight; // Add space between messages
+      });
+
+      // Save the PDF
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      pdf.save(`neurocare-conversation-${timestamp}.pdf`);
+    } catch (err) {
+      console.error("Error generating PDF:", err);
+      alert("Failed to generate PDF. Please try again.");
     }
   }
 
@@ -260,6 +317,21 @@ const AskAi = () => {
             <p className="text-sm text-gray mt-1">Get personalized support and guidance</p>
           </div>
           <div className="flex items-center gap-3">
+            {/* Download Button - Only visible when there are messages */}
+            {messages.length > 0 && (
+              <button
+                onClick={downloadConversationAsPDF}
+                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 px-4 py-2 text-sm font-semibold text-white shadow-lg transition-all duration-300 transform hover:scale-105 hover:shadow-xl"
+                title="Download conversation as PDF"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17v3a2 2 0 002 2h14a2 2 0 002-2v-3M3 17V7a2 2 0 012-2h14a2 2 0 012 2v10" />
+                </svg>
+                <span className="hidden sm:inline">Download PDF</span>
+                <span className="sm:hidden">PDF</span>
+              </button>
+            )}
+            
             {/* Book Appointment Button - Only visible for students */}
             {currentUser?.role === 'student' && (
               <button
@@ -273,6 +345,7 @@ const AskAi = () => {
                 <span className="sm:hidden">Book</span>
               </button>
             )}
+            
             {/* Menu Button - Only visible on mobile */}
             <button
               type="button"
