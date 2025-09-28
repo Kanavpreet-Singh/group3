@@ -260,17 +260,19 @@ const AskAi = () => {
             <p className="text-sm text-gray mt-1">Get personalized support and guidance</p>
           </div>
           <div className="flex items-center gap-3">
-            {/* Book Appointment Button - Visible on both mobile and desktop */}
-            <button
-              onClick={() => navigate('/book')}
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-green-400 to-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-lg hover:opacity-90 transition-all duration-300 transform hover:scale-105 hover:shadow-xl"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span className="hidden sm:inline">Book Appointment</span>
-              <span className="sm:hidden">Book</span>
-            </button>
+            {/* Book Appointment Button - Only visible for students */}
+            {currentUser?.role === 'student' && (
+              <button
+                onClick={() => navigate('/book')}
+                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-green-400 to-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-lg hover:opacity-90 transition-all duration-300 transform hover:scale-105 hover:shadow-xl"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className="hidden sm:inline">Book Appointment</span>
+                <span className="sm:hidden">Book</span>
+              </button>
+            )}
             {/* Menu Button - Only visible on mobile */}
             <button
               type="button"
