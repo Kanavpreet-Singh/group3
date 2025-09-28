@@ -49,4 +49,60 @@ router.post('/signin', async (req, res) => {
   }
 });
 
+// Get all counselors
+router.get("/counselors", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT 
+        u.id as user_id,
+        u.name,
+        u.email,
+        c.id as counselor_id,
+        c.specialization,
+        c.bio,
+        c.years_of_experience
+       FROM Users u
+       JOIN Counselors c ON u.id = c.user_id
+       WHERE u.role = 'counselor'
+       ORDER BY u.name ASC`
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching counselors:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Get specific counselor by ID
+router.get("/counselors/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await pool.query(
+      `SELECT 
+        u.id as user_id,
+        u.name,
+        u.email,
+        c.id as counselor_id,
+        c.specialization,
+        c.bio,
+        c.years_of_experience
+       FROM Users u
+       JOIN Counselors c ON u.id = c.user_id
+       WHERE u.role = 'counselor' AND (u.id = $1 OR c.id = $1)`,
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: "Counselor not found" });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Error fetching counselor:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 module.exports = router;

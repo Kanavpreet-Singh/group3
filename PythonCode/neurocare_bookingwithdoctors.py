@@ -2,8 +2,9 @@
 from flask import Flask, request, jsonify
 from sentence_transformers import SentenceTransformer
 from langchain.schema import Document
-from langchain_community.embeddings import SentenceTransformerEmbeddings
-from langchain.vectorstores import Chroma
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_community.vectorstores import Chroma
+
 from langchain.chains import RetrievalQA
 from langchain_groq import ChatGroq
 import os
@@ -24,7 +25,7 @@ os.environ['GROQ_API_KEY'] = GROQ_API_KEY
 
 # Load embedding model and LLM once
 embed_model = SentenceTransformer('all-MiniLM-L6-v2')
-embeddings_model = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
+embeddings_model = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 llm = ChatGroq(model="llama-3.1-8b-instant")
 
 # Persistent directory for Chroma DB
