@@ -7,21 +7,80 @@ const jwt = require('jsonwebtoken');
 const JWT_SECRET = process.env.JWT_SECRET ;
 
 router.post('/signup', async (req, res) => {
+  const client = await pool.connect();
+  
   try {
-    const { name, email, password, role } = req.body;
-    const existingUser = await pool.query('SELECT * FROM Users WHERE email=$1', [email]);
+    const { 
+      name, 
+      email, 
+      password, 
+      role,
+      // Additional counselor fields
+      specialization,
+      bio,
+      yearsOfExperience
+    } = req.body;
+
+    // Validate required fields for counselors
+    if (role === 'counselor') {
+      if (!specialization || !bio || !yearsOfExperience) {
+        return res.status(400).json({ 
+          message: 'For counselor registration, specialization, bio, and years of experience are required' 
+        });
+      }
+    }
+
+    // Start transaction
+    await client.query('BEGIN');
+
+    // Check if user exists
+    const existingUser = await client.query('SELECT * FROM Users WHERE email=$1', [email]);
     if (existingUser.rows.length > 0) {
       return res.status(400).json({ message: 'User already exists' });
     }
+
+    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
-    const result = await pool.query(
+
+    // Insert into Users table
+    const userResult = await client.query(
       'INSERT INTO Users (name, email, password, role) VALUES ($1, $2, $3, $4) RETURNING *',
       [name, email, hashedPassword, role || 'student']
     );
-    res.status(201).json({ message: 'User created successfully', user: result.rows[0] });
+
+    let counselorData = null;
+
+    // If role is counselor, insert into Counselors table
+    if (role === 'counselor') {
+      const counselorResult = await client.query(
+        `INSERT INTO Counselors (user_id, specialization, bio, years_of_experience) 
+         VALUES ($1, $2, $3, $4) 
+         RETURNING *`,
+        [userResult.rows[0].id, specialization, bio, yearsOfExperience]
+      );
+      counselorData = counselorResult.rows[0];
+    }
+
+    // Commit transaction
+    await client.query('COMMIT');
+
+    // Return appropriate response
+    res.status(201).json({ 
+      message: 'User created successfully', 
+      user: userResult.rows[0],
+      counselor: counselorData
+    });
+
   } catch (err) {
+    // Rollback in case of error
+    await client.query('ROLLBACK');
     console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ 
+      message: 'Server error',
+      error: err.message 
+    });
+  } finally {
+    client.release();
   }
 });
 
