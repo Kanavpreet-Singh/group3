@@ -21,7 +21,8 @@ const AskAi = () => {
   const [conversation, setConversation] = useState(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [previousConversations, setPreviousConversations] = useState([])
-
+  const [showPublishPopup, setShowPublishPopup] = useState(false);
+  const [summaryData, setSummaryData] = useState(null);
   const messagesEndRef = useRef(null)
   const messagesContainerRef = useRef(null)
 
@@ -154,6 +155,7 @@ const AskAi = () => {
     } else if (type === 'summary') {
       // Get summary JSON (title + content only)
       const summary = await getSummarizedChat();
+      setSummaryData(summary);
 
       // Title
       pdf.setFont("helvetica", "bold");
@@ -178,6 +180,8 @@ const AskAi = () => {
     // Save file
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
     const fileType = type === 'summary' ? 'summary' : 'full';
+     // Show publish popup only if summarized PDF
+    if (type === 'summary') setShowPublishPopup(true);
     pdf.save(`neurocare-conversation-${fileType}-${timestamp}.pdf`);
   } catch (err) {
     console.error("Error generating PDF:", err);
@@ -423,6 +427,59 @@ const AskAi = () => {
         </div>
       </div>
     )}
+
+    {/* Publish Blog Popup */}
+{showPublishPopup && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+    <div className="bg-blue p-6 rounded-xl shadow-xl max-w-sm w-full mx-4">
+      <h3 className="text-xl font-bold mb-4 text-yellow">Publish Blog</h3>
+      <p className="mb-4">Do you want to publish this summarized chat as a blog to help others gain insights?</p>
+      <div className="flex justify-between gap-4">
+        <button
+  onClick={async () => {
+    if (!summaryData) return;
+
+    try {
+      const res = await fetch(`${API_BASE}/api/blogs/newblog`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          token, 
+        },
+        body: JSON.stringify({
+          title: summaryData.title,
+          content: summaryData.content,
+          source_conversation_id:conversation?.id
+        }),
+      });
+
+      if (res.ok) {
+        alert("Blog created successfully!");
+      } else {
+        alert("Failed to create blog. Please try again.");
+      }
+    } catch (err) {
+      console.error("Error creating blog:", err);
+      alert("Something went wrong. Please try again.");
+    } finally {
+      setShowPublishPopup(false);
+    }
+  }}
+  className="flex-1 py-3 px-4 bg-green-500 hover:bg-green-600 rounded-lg text-white font-semibold transition"
+>
+  Yes
+</button>
+        <button
+          onClick={() => setShowPublishPopup(false)}
+          className="flex-1 py-3 px-4 bg-gray-700 hover:bg-gray-600 rounded-lg text-white font-semibold transition"
+        >
+          Skip
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
   </>
 )}
 
