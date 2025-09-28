@@ -75,42 +75,71 @@ const AskAi = () => {
     }
   }
 
-  const downloadConversationAsPDF = () => {
-    if (!messages.length) return;
+  const [showPdfModal, setShowPdfModal] = useState(false);
+  const [summarizing, setSummarizing] = useState(false);
 
+  const getSummarizedChat = async () => {
     try {
-      const pdf = new jsPDF();
-      const lineHeight = 10;
-      let yPosition = 20;
+      setSummarizing(true);
+      // Combine all messages into a single text
+      const fullText = messages
+        .filter(msg => !msg.typing)
+        .map(msg => `${msg.sender === 'user' ? 'User' : 'AI'}: ${msg.text}`)
+        .join('\n\n');
 
-      // Add title
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(16);
-      pdf.text("NeuroCare AI Conversation", 20, yPosition);
-      yPosition += lineHeight * 2;
+      const response = await fetch('http://localhost:5001/api/summarize', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ raw_text: fullText }),
+      });
 
-      // Add timestamp
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(12);
-      pdf.text(`Generated on: ${new Date().toLocaleString()}`, 20, yPosition);
-      yPosition += lineHeight * 2;
+      const data = await response.json();
+      return data;
+    } catch (err) {
+      console.error('Error getting summary:', err);
+      throw err;
+    } finally {
+      setSummarizing(false);
+    }
+  };
 
-      // Add messages
+  const downloadConversationAsPDF = async (type = 'full') => {
+  if (!messages.length) return;
+  setShowPdfModal(false);
+
+  try {
+    const pdf = new jsPDF();
+    const lineHeight = 10;
+    let yPosition = 20;
+
+    // Add heading
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(16);
+    pdf.text("NeuroCare AI Conversation", 20, yPosition);
+    yPosition += lineHeight * 2;
+
+    // Add timestamp
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(12);
+    pdf.text(`Generated on: ${new Date().toLocaleString()}`, 20, yPosition);
+    yPosition += lineHeight * 2;
+
+    if (type === 'full') {
+      // Write the full conversation
       pdf.setFontSize(11);
       messages.forEach((msg) => {
-        if (msg.typing) return; // Skip typing indicators
+        if (msg.typing) return;
 
-        // Add sender
         pdf.setFont("helvetica", "bold");
         const sender = msg.sender === "user" ? "You" : "NeuroCare AI";
         pdf.text(`${sender}:`, 20, yPosition);
         yPosition += lineHeight;
 
-        // Add message text
         pdf.setFont("helvetica", "normal");
-        const messageLines = pdf.splitTextToSize(msg.text, 170); // Split long messages
+        const messageLines = pdf.splitTextToSize(msg.text, 170);
         messageLines.forEach(line => {
-          // Check if we need a new page
           if (yPosition > 280) {
             pdf.addPage();
             yPosition = 20;
@@ -119,17 +148,43 @@ const AskAi = () => {
           yPosition += lineHeight;
         });
 
-        yPosition += lineHeight; // Add space between messages
+        yPosition += lineHeight;
       });
 
-      // Save the PDF
-      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-      pdf.save(`neurocare-conversation-${timestamp}.pdf`);
-    } catch (err) {
-      console.error("Error generating PDF:", err);
-      alert("Failed to generate PDF. Please try again.");
+    } else if (type === 'summary') {
+      // Get summary JSON (title + content only)
+      const summary = await getSummarizedChat();
+
+      // Title
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(14);
+      pdf.text(summary.title, 20, yPosition);
+      yPosition += lineHeight * 2;
+
+      // Content
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(11);
+      const summaryLines = pdf.splitTextToSize(summary.content, 170);
+      summaryLines.forEach(line => {
+        if (yPosition > 280) {
+          pdf.addPage();
+          yPosition = 20;
+        }
+        pdf.text(line, 20, yPosition);
+        yPosition += lineHeight;
+      });
     }
+
+    // Save file
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const fileType = type === 'summary' ? 'summary' : 'full';
+    pdf.save(`neurocare-conversation-${fileType}-${timestamp}.pdf`);
+  } catch (err) {
+    console.error("Error generating PDF:", err);
+    alert("Failed to generate PDF. Please try again.");
   }
+};
+
 
   const fetchMessages = async (conversationId) => {
     try {
@@ -319,18 +374,58 @@ const AskAi = () => {
           <div className="flex items-center gap-3">
             {/* Download Button - Only visible when there are messages */}
             {messages.length > 0 && (
-              <button
-                onClick={downloadConversationAsPDF}
-                className="inline-flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 px-4 py-2 text-sm font-semibold text-white shadow-lg transition-all duration-300 transform hover:scale-105 hover:shadow-xl"
-                title="Download conversation as PDF"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17v3a2 2 0 002 2h14a2 2 0 002-2v-3M3 17V7a2 2 0 012-2h14a2 2 0 012 2v10" />
-                </svg>
-                <span className="hidden sm:inline">Download PDF</span>
-                <span className="sm:hidden">PDF</span>
-              </button>
-            )}
+  <>
+    <button
+      onClick={() => setShowPdfModal(true)}
+      className="inline-flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 px-4 py-2 text-sm font-semibold text-white shadow-lg transition-all duration-300 transform hover:scale-105 hover:shadow-xl"
+      title="Download conversation as PDF"
+    >
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17v3a2 2 0 002 2h14a2 2 0 002-2v-3M3 17V7a2 2 0 012-2h14a2 2 0 012 2v10" />
+      </svg>
+      <span className="hidden sm:inline">Download PDF</span>
+      <span className="sm:hidden">PDF</span>
+    </button>
+
+    {showPdfModal && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+        <div className="bg-blue p-6 rounded-xl shadow-xl max-w-sm w-full mx-4">
+          <h3 className="text-xl font-bold mb-4 text-yellow">Download Options</h3>
+          <div className="space-y-4">
+            <button
+              onClick={() => downloadConversationAsPDF('full')}
+              className="w-full py-3 px-4 bg-gray-700 hover:bg-gray-600 rounded-lg text-white transition-colors"
+              disabled={summarizing}
+            >
+              Full Conversation PDF
+            </button>
+            <button
+              onClick={() => downloadConversationAsPDF('summary')}
+              className="w-full py-3 px-4 bg-yellow text-black hover:bg-yellow/90 rounded-lg transition-colors flex items-center justify-center gap-2"
+              disabled={summarizing}
+            >
+              {summarizing ? (
+                <>
+                  <span className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                  Summarizing...
+                </>
+              ) : (
+                'Summarized Chat PDF'
+              )}
+            </button>
+            <button
+              onClick={() => setShowPdfModal(false)}
+              className="w-full py-3 px-4 bg-transparent border border-gray hover:bg-gray-800 rounded-lg text-white transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+  </>
+)}
+
             
             {/* Book Appointment Button - Only visible for students */}
             {currentUser?.role === 'student' && (
