@@ -3,7 +3,7 @@ const router = express.Router();
 const pool = require('../db');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-
+const userAuth = require("../middleware/authentication/user");
 const JWT_SECRET = process.env.JWT_SECRET ;
 
 router.post('/signup', async (req, res) => {
@@ -160,6 +160,48 @@ router.get("/counselors/:id", async (req, res) => {
     res.json(result.rows[0]);
   } catch (err) {
     console.error("Error fetching counselor:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+router.get("/appointments", userAuth, async (req, res) => {
+  try {
+    let result;
+
+    if (req.user.role === "student") {
+      // Fetch student appointments
+      result = await pool.query(
+        `SELECT a.id, a.appointment_time, a.status,
+                c.id as counselor_id, u.name as counselor_name, c.specialization
+         FROM Appointments a
+         JOIN Counselors c ON a.counselor_id = c.id
+         JOIN Users u ON c.user_id = u.id
+         WHERE a.student_id = $1
+         ORDER BY a.appointment_time DESC`,
+        [req.user.id]
+      );
+    } else if (req.user.role === "counselor") {
+      // Fetch counselor appointments
+      result = await pool.query(
+        `SELECT a.id, a.appointment_time, a.status,
+                u.id as student_id, u.name as student_name, u.email as student_email
+         FROM Appointments a
+         JOIN Users u ON a.student_id = u.id
+         WHERE a.counselor_id = (
+            SELECT id FROM Counselors WHERE user_id = $1
+         )
+         ORDER BY a.appointment_time DESC`,
+        [req.user.id]
+      );
+    } else {
+      return res
+        .status(403)
+        .json({ message: "Only students and counselors have appointments" });
+    }
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching appointments:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
