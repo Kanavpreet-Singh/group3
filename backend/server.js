@@ -46,4 +46,4 @@ app.listen(port, () => {
 app.use('/api/users', userRoutes);
 app.use('/api/chats', chatRoutes);
 app.use('/api/blogs', blogRoutes);
-app.use('/api/appointment', appointmentRoutes);
+app.use('/api/appointments', appointmentRoutes);

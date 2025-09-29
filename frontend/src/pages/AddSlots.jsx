@@ -20,7 +20,7 @@ export default function AddSlots() {
       return;
     }
 
-    // Combine date + time to form JS Date objects
+    // Build local start and end Date objects
     const startDateTime = new Date(selectedDate);
     const [startHour, startMin] = startTime.split(":").map(Number);
     startDateTime.setHours(startHour, startMin, 0, 0);
@@ -29,8 +29,8 @@ export default function AddSlots() {
     const [endHour, endMin] = endTime.split(":").map(Number);
     endDateTime.setHours(endHour, endMin, 0, 0);
 
+    // Validation
     const nowPlus1Hour = new Date(Date.now() + 60 * 60 * 1000);
-
     if (startDateTime < nowPlus1Hour) {
       alert("Start time must be at least 1 hour from now");
       return;
@@ -41,9 +41,19 @@ export default function AddSlots() {
       return;
     }
 
+    // ❌ Disallow slots that end after 23:00
+    if (endHour > 23 || (endHour === 23 && endMin > 0)) {
+      alert("Slots must be completed before 23:00 (lab closing time)");
+      return;
+    }
+
     try {
       setLoading(true);
       const token = localStorage.getItem("token");
+
+      // Format date in local time (YYYY-MM-DD)
+      const localDate = selectedDate.toLocaleDateString("en-CA");
+
       const res = await fetch(`${BASE_URL}/api/appointments/addslot`, {
         method: "POST",
         headers: {
@@ -51,7 +61,7 @@ export default function AddSlots() {
           token: token,
         },
         body: JSON.stringify({
-          date: selectedDate.toISOString().split("T")[0],
+          date: localDate,
           startTime,
           endTime,
         }),
