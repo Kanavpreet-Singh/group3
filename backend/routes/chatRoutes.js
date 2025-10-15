@@ -129,7 +129,7 @@ router.get("/messages/:conversationId", userAuth, async (req, res) => {
     }
 
     const result = await pool.query(
-      "SELECT * FROM Messages WHERE conversation_id = $1 AND sender = 'user' ORDER BY created_at ASC",
+      "SELECT * FROM Messages WHERE conversation_id = $1  ORDER BY created_at ASC",
       [conversationId]
     );
 

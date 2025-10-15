@@ -39,8 +39,6 @@ Do not ask the user what to do next.
 Do not repeat previous responses.
 Use empathy, professionalism, and warmth.
 
-Conversation History:
-{history}
 
 User Question:
 {input}
