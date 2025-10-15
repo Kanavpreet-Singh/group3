@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useContext } from "react";
 import { AuthContext } from "../context/AuthContext";
+import AdminAnalytics from "../components/AdminAnalytics";
 import { useNavigate } from "react-router-dom";
 
 const API_BASE = import.meta.env.VITE_API_URL;
@@ -118,6 +119,14 @@ export default function Profile() {
             </div>
           )}
         </div>
+
+        {/* Admin-only message analytics */}
+        {currentUser?.role === "admin" && (
+          <div className="mt-8">
+            <h2 className="text-2xl font-bold text-yellow mb-4">Admin Message Analytics</h2>
+            <AdminAnalytics />
+          </div>
+        )}
       </div>
     </div>
   );

@@ -75,9 +75,10 @@ co = cohere.ClientV2(COHERE_API_KEY)  # Initialize Cohere client
 os.environ['GROQ_API_KEY'] = GROQ_API_KEY
 
 # Load fine-tuned model and tokenizer from local folder
-MODEL_DIR = "./fine_tuned_model"  # folder you added in your API directory
-model = AutoModelForSequenceClassification.from_pretrained(MODEL_DIR)
-tokenizer = AutoTokenizer.from_pretrained(MODEL_DIR)
+MODEL_REPO = "kps05/ClassifyMessages_NeuroCare"
+model = AutoModelForSequenceClassification.from_pretrained(MODEL_REPO)
+tokenizer = AutoTokenizer.from_pretrained(MODEL_REPO)
+
 model.eval()
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model.to(device)

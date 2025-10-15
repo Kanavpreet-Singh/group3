@@ -18,6 +18,101 @@ router.get("/allchats", userAuth, async (req, res) => {
   }
 });
 
+// Fetch all messages with category = 'other' (across all users)
+router.get("/messages/other", userAuth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT * FROM Messages WHERE category = $1 AND sender = 'user' ORDER BY created_at ASC`,
+      ['other']
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching 'other' messages:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Get message counts grouped by category (admin only)
+router.get("/messages/category-stats", userAuth, async (req, res) => {
+  try {
+    // only admins may access
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    // Ensure messages are classified before computing stats
+    await classifyPendingMessages();
+
+    const result = await pool.query(
+      "SELECT category, COUNT(*)::int AS count FROM Messages WHERE sender = 'user' GROUP BY category"
+    );
+
+    const total = result.rows.reduce((s, r) => s + Number(r.count), 0);
+
+    res.json({ total, stats: result.rows });
+  } catch (err) {
+    console.error('Error fetching category stats:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+
+// Helper: classify pending messages (wraps the same logic the POST /messages/classify uses)
+async function classifyPendingMessages() {
+  try {
+    // select messages labeled 'other' for reclassification (user messages only)
+    const result = await pool.query(
+      `SELECT id, message FROM Messages WHERE category = 'other' AND sender = 'user'`
+    );
+    const messagesToClassify = result.rows;
+    if (!messagesToClassify || messagesToClassify.length === 0) return [];
+
+    const texts = messagesToClassify.map(m => m.message);
+    const flaskUrl = process.env.FLASK_API_URL || 'http://localhost:5001/api/classify-messages';
+
+    const flaskResp = await fetch(flaskUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: texts }),
+    });
+
+    if (!flaskResp.ok) {
+      return [];
+    }
+
+    const json = await flaskResp.json();
+    const predictions = json.predictions || [];
+    const allowed = ['academic', 'career', 'relationship', 'other'];
+
+    if (!Array.isArray(predictions) || predictions.length !== messagesToClassify.length) {
+      return [];
+    }
+
+    await pool.query('BEGIN');
+    try {
+      for (let i = 0; i < messagesToClassify.length; i++) {
+        const id = messagesToClassify[i].id;
+        let category = predictions[i];
+        if (typeof category === 'string') category = category.toLowerCase().trim();
+        else category = 'other';
+        if (!allowed.includes(category)) category = 'other';
+        await pool.query('UPDATE Messages SET category = $1 WHERE id = $2', [category, id]);
+      }
+      await pool.query('COMMIT');
+    } catch (err) {
+      await pool.query('ROLLBACK');
+    }
+
+    return messagesToClassify.map((m, i) => ({ id: m.id, category: predictions[i] }));
+  } catch (err) {
+    console.error('Error in classifyPendingMessages:', err);
+    return [];
+  }
+}
+
+module.exports = router;
+
 // Fetch messages for a specific conversation
 router.get("/messages/:conversationId", userAuth, async (req, res) => {
   try {
@@ -34,7 +129,7 @@ router.get("/messages/:conversationId", userAuth, async (req, res) => {
     }
 
     const result = await pool.query(
-      "SELECT * FROM Messages WHERE conversation_id = $1 ORDER BY created_at ASC",
+      "SELECT * FROM Messages WHERE conversation_id = $1 AND sender = 'user' ORDER BY created_at ASC",
       [conversationId]
     );
 
@@ -44,6 +139,8 @@ router.get("/messages/:conversationId", userAuth, async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
+// (moved above to avoid route param conflicts)
 
 router.post("/newconversation", userAuth, async (req, res) => {
   try {
@@ -123,6 +220,107 @@ router.post("/newmessage", userAuth, async (req, res) => {
   } catch (err) {
     console.error("Error adding message:", err);
     res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Classify messages using external Flask classifier and store categories
+router.post("/messages/classify", userAuth, async (req, res) => {
+  try {
+    const { messageIds } = req.body || {};
+
+    // Fetch messages to classify: either specified IDs or those with NULL/empty category
+    let messagesToClassify;
+    if (Array.isArray(messageIds) && messageIds.length > 0) {
+      const q = `SELECT id, message FROM Messages WHERE id = ANY($1) AND sender = 'user'`;
+      const result = await pool.query(q, [messageIds]);
+      messagesToClassify = result.rows;
+    } else {
+      // Column `category` uses an ENUM with default 'other'; select messages currently labeled 'other' for re-classification
+      const result = await pool.query(
+        `SELECT id, message FROM Messages WHERE category = 'other' AND sender = 'user'`
+      );
+      messagesToClassify = result.rows;
+    }
+
+    if (!messagesToClassify || messagesToClassify.length === 0) {
+      return res.json({ message: 'No messages to classify', classified: [] });
+    }
+
+    const texts = messagesToClassify.map(m => m.message);
+
+    const flaskUrl = process.env.FLASK_API_URL || 'http://localhost:5001/api/classify-messages';
+
+    // Call Flask classifier
+    const flaskResp = await fetch(flaskUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: texts }),
+    });
+
+    if (!flaskResp.ok) {
+      const txt = await flaskResp.text().catch(() => '');
+      throw new Error(`Flask classifier error ${flaskResp.status}: ${txt}`);
+    }
+
+    const json = await flaskResp.json();
+    const predictions = json.predictions || [];
+
+    if (!Array.isArray(predictions) || predictions.length !== messagesToClassify.length) {
+      // best-effort: if lengths mismatch, abort
+      throw new Error('Classifier returned unexpected number of predictions');
+    }
+
+    // Validate predictions against allowed enum values before persisting
+    const allowed = ['academic', 'career', 'relationship', 'other'];
+
+    // Persist predictions in DB within a transaction
+    await pool.query('BEGIN');
+    try {
+      const classified = [];
+      for (let i = 0; i < messagesToClassify.length; i++) {
+        const id = messagesToClassify[i].id;
+        let category = predictions[i];
+        if (typeof category === 'string') {
+          category = category.toLowerCase().trim();
+        } else {
+          category = 'other';
+        }
+        if (!allowed.includes(category)) {
+          category = 'other';
+        }
+        await pool.query('UPDATE Messages SET category = $1 WHERE id = $2', [category, id]);
+        classified.push({ id, category });
+      }
+      await pool.query('COMMIT');
+      return res.json({ message: 'Classified and saved', classified });
+    } catch (err) {
+      await pool.query('ROLLBACK');
+      throw err;
+    }
+  } catch (err) {
+    console.error('Error classifying messages:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
+
+// Get message counts grouped by category (admin only)
+router.get("/messages/category-stats", userAuth, async (req, res) => {
+  try {
+    // only admins may access
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const result = await pool.query(
+      "SELECT category, COUNT(*)::int AS count FROM Messages WHERE sender = 'user' GROUP BY category"
+    );
+
+    const total = result.rows.reduce((s, r) => s + Number(r.count), 0);
+
+    res.json({ total, stats: result.rows });
+  } catch (err) {
+    console.error('Error fetching category stats:', err);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
