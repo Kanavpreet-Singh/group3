@@ -4,6 +4,11 @@ from dotenv import load_dotenv
 import os
 import json
 
+import torch
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from datasets import ClassLabel
+
+
 
 from textblob import TextBlob
 
@@ -69,6 +74,18 @@ COHERE_API_KEY = os.getenv("COHERE_API_KEY")
 co = cohere.ClientV2(COHERE_API_KEY)  # Initialize Cohere client
 os.environ['GROQ_API_KEY'] = GROQ_API_KEY
 
+# Load fine-tuned model and tokenizer from local folder
+MODEL_DIR = "./fine_tuned_model"  # folder you added in your API directory
+model = AutoModelForSequenceClassification.from_pretrained(MODEL_DIR)
+tokenizer = AutoTokenizer.from_pretrained(MODEL_DIR)
+model.eval()
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model.to(device)
+
+# Define label map (ensure this matches training)
+labels = ["academic", "career", "relationship", "other"]
+label_map = ClassLabel(names=labels).int2str
+
 # Flask app
 app = Flask(__name__)
 CORS(app)
@@ -102,6 +119,32 @@ def generate_response(user_input, session_id):
     response = chain.run(input=user_input)
     # response = clean_response(response)
     return response, sentiment_analysis
+
+def classify_texts(texts):
+    """
+    texts: list of strings
+    returns: list of predicted labels
+    """
+    if not texts:
+        return []
+
+    inputs = tokenizer(
+        texts,
+        return_tensors="pt",
+        truncation=True,
+        padding=True,
+        max_length=256
+    )
+    inputs = {k: v.to(device) for k, v in inputs.items()}
+
+    with torch.no_grad():
+        outputs = model(**inputs)
+        predicted_ids = torch.argmax(outputs.logits, dim=-1).cpu().tolist()
+
+    predicted_labels = [label_map(i) for i in predicted_ids]
+    return predicted_labels
+
+
 
 app = Flask(__name__)
 CORS(app)
@@ -231,6 +274,21 @@ def query_doctors():
             continue
 
     return jsonify({"answer": answer_text, "user_ids": user_ids})
+
+@app.route("/api/classify-messages", methods=["POST"])
+def classify_messages():
+    """
+    Expects JSON payload:
+    {"messages": ["message1", "message2", ...]}
+    """
+    data = request.get_json()
+    texts = data.get("messages", [])
+    if not texts:
+        return jsonify({"error": "No messages provided"}), 400
+
+    predictions = classify_texts(texts)
+    return jsonify({"predictions": predictions})
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5001, debug=True)
