@@ -30,7 +30,7 @@ from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
 
 # Connect to local Ollama model
-llm = OllamaLLM(model="llama3")
+llm = OllamaLLM(model="llama3.2")
 
 # Define system prompt for the chatbot
 prompt_text = """You are a compassionate and expert mental health doctor.
