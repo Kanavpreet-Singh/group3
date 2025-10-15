@@ -4,8 +4,7 @@ from dotenv import load_dotenv
 import os
 import json
 
-# GEMINI AI imports
-import google.generativeai as genai
+
 from textblob import TextBlob
 
 # Cohere for summarization
@@ -19,6 +18,46 @@ from langchain_community.vectorstores import Chroma
 from langchain.chains import RetrievalQA
 from langchain_groq import ChatGroq
 
+# --- LOCAL Mental Health Chatbot using Ollama ---
+from langchain_ollama import OllamaLLM
+from langchain.memory import ConversationBufferMemory
+from langchain.prompts import PromptTemplate
+from langchain.chains import LLMChain
+
+# Connect to local Ollama model
+llm = OllamaLLM(model="llama3")
+
+# Define system prompt for the chatbot
+prompt_text = """You are a compassionate and expert mental health doctor.
+Answer the user's question fully and clearly in 4-5 sentences.
+Do not ask the user what to do next.
+Do not repeat previous responses.
+Use empathy, professionalism, and warmth.
+
+Conversation History:
+{history}
+
+User Question:
+{input}
+
+AI:"""
+
+prompt = PromptTemplate(
+    input_variables=["history", "input"],
+    template=prompt_text,
+)
+
+user_memories = {}
+
+def get_memory(session_id):
+    """Return memory for this user, creating if needed."""
+    if session_id not in user_memories:
+        user_memories[session_id] = ConversationBufferMemory(memory_key="history")
+    return user_memories[session_id]
+
+
+
+
 # Load environment variables
 load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -26,8 +65,7 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 COHERE_API_KEY = os.getenv("COHERE_API_KEY")
 
 # Configure APIs
-genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel('gemini-2.5-flash')
+
 co = cohere.ClientV2(COHERE_API_KEY)  # Initialize Cohere client
 os.environ['GROQ_API_KEY'] = GROQ_API_KEY
 
@@ -35,7 +73,8 @@ os.environ['GROQ_API_KEY'] = GROQ_API_KEY
 app = Flask(__name__)
 CORS(app)
 
-# --- GEMINI Mental Health Chatbot ---
+# --- LOCAL Mental Health Chatbot using Ollama ---
+
 def analyze_sentiment(text):
     blob = TextBlob(text)
     polarity = blob.sentiment.polarity
@@ -47,39 +86,44 @@ def analyze_sentiment(text):
         sentiment = "Neutral"
     return {"sentiment": sentiment, "polarity": polarity}
 
-def generate_response(user_input):
+# def clean_response(text: str) -> str:
+#     text = text.strip()
+#     greetings = ["hello", "hi", "hey", "greetings"]
+#     for g in greetings:
+#         if text.lower().startswith(g):
+#             text = text[len(g):].lstrip(",.! ").strip()
+#             break
+#     return text
+
+def generate_response(user_input, session_id):
     sentiment_analysis = analyze_sentiment(user_input)
-    prompt = f"""
-    You are a compassionate mental health support chatbot.
-    Current user message: {user_input}
-    Detected sentiment: {sentiment_analysis['sentiment']} (polarity: {sentiment_analysis['polarity']:.2f})
+    memory = get_memory(session_id)
+    chain = LLMChain(llm=llm, prompt=prompt, memory=memory)
+    response = chain.run(input=user_input)
+    # response = clean_response(response)
+    return response, sentiment_analysis
 
-    Guidelines:
-    1. Be empathetic and understanding
-    2. Provide supportive responses
-    3. If the user seems in crisis, encourage professional help
-    4. Ask follow-up questions
-    5. Provide coping strategies when appropriate
-    6. Keep responses conversational and warm
-
-    Please provide a supportive response:
-    """
-    response = model.generate_content(prompt)
-    return response.text, sentiment_analysis
+app = Flask(__name__)
+CORS(app)
 
 @app.route("/api/ai-response", methods=["POST"])
 def ai_response():
     data = request.get_json()
     user_message = data.get("message")
+    session_id = data.get("session_id", "default_user")  # front-end should send this
+
     if not user_message:
         return jsonify({"error": "Message is required"}), 400
-    ai_reply, sentiment_analysis = generate_response(user_message)
-    return jsonify({"aiResponse": ai_reply, "sentiment": sentiment_analysis['sentiment']})
 
+    ai_reply, sentiment_analysis = generate_response(user_message, session_id)
+    return jsonify({
+        "aiResponse": ai_reply,
+        "sentiment": sentiment_analysis["sentiment"]
+    })
 # --- Doctor Query API ---
 embed_model = SentenceTransformer('all-MiniLM-L6-v2')
 embeddings_model = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-llm = ChatGroq(model="llama-3.1-8b-instant")
+groq_llm = ChatGroq(model="llama-3.1-8b-instant")
 VECTORDIR = "./vectordb"
 
 def load_or_create_vectorstore(doctors_list):
@@ -174,7 +218,7 @@ def query_doctors():
 
     vectordb = load_or_create_vectorstore(doctors_list)
     retriever = vectordb.as_retriever(search_kwargs={"k": 3})
-    qa_chain = RetrievalQA.from_chain_type(llm=llm, chain_type="stuff", retriever=retriever)
+    qa_chain = RetrievalQA.from_chain_type(llm=groq_llm, chain_type="stuff", retriever=retriever)
     answer_text = qa_chain.run(user_query)
 
     retrieved_docs = retriever.get_relevant_documents(user_query)
