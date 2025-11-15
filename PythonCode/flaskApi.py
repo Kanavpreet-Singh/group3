@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 import os
 import json
 
+import google.generativeai as genai
 import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from datasets import ClassLabel
@@ -23,32 +24,8 @@ from langchain_community.vectorstores import Chroma
 from langchain.chains import RetrievalQA
 from langchain_groq import ChatGroq
 
-# --- LOCAL Mental Health Chatbot using Ollama ---
-from langchain_ollama import OllamaLLM
+# --- Mental Health Chatbot using Gemini API ---
 from langchain.memory import ConversationBufferMemory
-from langchain.prompts import PromptTemplate
-from langchain.chains import LLMChain
-
-# Connect to local Ollama model
-llm = OllamaLLM(model="llama3.2")
-
-# Define system prompt for the chatbot
-prompt_text = """You are a compassionate and expert mental health doctor.
-Answer the user's question fully and clearly in 4-5 sentences.
-Do not ask the user what to do next.
-Do not repeat previous responses.
-Use empathy, professionalism, and warmth.
-
-
-User Question:
-{input}
-
-AI:"""
-
-prompt = PromptTemplate(
-    input_variables=["history", "input"],
-    template=prompt_text,
-)
 
 user_memories = {}
 
@@ -68,6 +45,8 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 COHERE_API_KEY = os.getenv("COHERE_API_KEY")
 
 # Configure APIs
+genai.configure(api_key=GEMINI_API_KEY)
+gemini_model = genai.GenerativeModel('gemini-2.5-flash')
 
 co = cohere.ClientV2(COHERE_API_KEY)  # Initialize Cohere client
 os.environ['GROQ_API_KEY'] = GROQ_API_KEY
@@ -113,11 +92,51 @@ def analyze_sentiment(text):
 
 def generate_response(user_input, session_id):
     sentiment_analysis = analyze_sentiment(user_input)
+    
+    # Get conversation memory for this session
     memory = get_memory(session_id)
-    chain = LLMChain(llm=llm, prompt=prompt, memory=memory)
-    response = chain.run(input=user_input)
-    # response = clean_response(response)
-    return response, sentiment_analysis
+    
+    # Get chat history from memory
+    chat_history = memory.chat_memory.messages if hasattr(memory, 'chat_memory') else []
+    history_context = ""
+    if chat_history:
+        for msg in chat_history[-6:]:  # Last 3 exchanges (6 messages)
+            if hasattr(msg, 'content'):
+                role = "User" if msg.__class__.__name__ == "HumanMessage" else "AI"
+                history_context += f"{role}: {msg.content}\n"
+    
+    prompt = f"""You are a compassionate mental health support chatbot.
+    Current user message: {user_input}
+    Detected sentiment: {sentiment_analysis['sentiment']} (polarity: {sentiment_analysis['polarity']:.2f})
+    
+    Previous conversation context:
+    {history_context}
+    
+    Guidelines:
+    1. Be empathetic and understanding
+    2. Provide supportive responses
+    3. If the user seems in crisis, encourage professional help
+    4. Ask follow-up questions when appropriate
+    5. Provide coping strategies when appropriate
+    6. Keep responses conversational and warm
+    7. Answer in 4-5 sentences maximum
+    8. Do not repeat previous responses
+    
+    Please provide a supportive response:
+    """
+    
+    try:
+        response = gemini_model.generate_content(prompt)
+        ai_response = response.text
+        
+        # Save to memory
+        memory.chat_memory.add_user_message(user_input)
+        memory.chat_memory.add_ai_message(ai_response)
+        
+        return ai_response, sentiment_analysis
+    except Exception as e:
+        print(f"Error generating response: {str(e)}")
+        return "I'm sorry, I'm having trouble responding right now. Please try again.", sentiment_analysis
 
 def classify_texts(texts):
     """
