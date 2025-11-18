@@ -1,4 +1,4 @@
-# 🧠 MindCare - AI-Powered Mental Health Support Platform
+# 🧠 NeuroCare - AI-Powered Mental Health Support Platform
 
 > An intelligent mental health support platform combining AI-powered chatbots, professional counselor appointments, and peer support through community blogging.
 
