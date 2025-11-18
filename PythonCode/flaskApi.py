@@ -3,6 +3,7 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 import os
 import json
+import random
 
 import google.generativeai as genai
 import torch
@@ -40,7 +41,12 @@ def get_memory(session_id):
 
 # Load environment variables
 load_dotenv()
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+# Randomly select one of three Gemini API keys
+api_key_number = random.randint(1, 3)
+GEMINI_API_KEY = os.getenv(f"GEMINI_API_KEY{api_key_number}")
+print(f"Using GEMINI_API_KEY{api_key_number}")
+
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 COHERE_API_KEY = os.getenv("COHERE_API_KEY")
 
