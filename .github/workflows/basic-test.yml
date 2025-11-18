@@ -1,0 +1,51 @@
+name: Basic Testing Workflow
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Install backend dependencies
+      working-directory: ./backend
+      run: npm install
+
+    - name: Run basic backend tests
+      working-directory: ./backend
+      run: |
+        echo "✅ Backend syntax check passed"
+        node -c server.js
+        echo "✅ Database connection file check passed"
+        node -c db.js
+
+    - name: Install frontend dependencies
+      working-directory: ./frontend
+      run: npm install
+
+    - name: Build frontend
+      working-directory: ./frontend
+      run: |
+        echo "✅ Building frontend..."
+        npm run build
+        echo "✅ Frontend build completed"
+
+    - name: Basic Python syntax check
+      working-directory: ./PythonCode
+      run: |
+        echo "✅ Checking Python files..."
+        python -m py_compile app.py
+        python -m py_compile flaskApi.py
+        echo "✅ Python syntax check passed"
