@@ -10,6 +10,12 @@ import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from datasets import ClassLabel
 
+from langchain_core.documents import Document
+
+# NEW LANGCHAIN 2025 IMPORTS
+from langchain_core.prompts import PromptTemplate
+from langchain_core.runnables import RunnablePassthrough
+
 
 
 from textblob import TextBlob
@@ -19,22 +25,16 @@ import cohere
 
 # LangChain / Doctor Query imports
 from sentence_transformers import SentenceTransformer
-from langchain.schema import Document
+
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
-from langchain.chains import RetrievalQA
+
 from langchain_groq import ChatGroq
 
-# --- Mental Health Chatbot using Gemini API ---
-from langchain.memory import ConversationBufferMemory
+
 
 user_memories = {}
 
-def get_memory(session_id):
-    """Return memory for this user, creating if needed."""
-    if session_id not in user_memories:
-        user_memories[session_id] = ConversationBufferMemory(memory_key="history")
-    return user_memories[session_id]
 
 
 
@@ -100,23 +100,17 @@ def generate_response(user_input, session_id):
     sentiment_analysis = analyze_sentiment(user_input)
     
     # Get conversation memory for this session
-    memory = get_memory(session_id)
+   
     
     # Get chat history from memory
-    chat_history = memory.chat_memory.messages if hasattr(memory, 'chat_memory') else []
-    history_context = ""
-    if chat_history:
-        for msg in chat_history[-6:]:  # Last 3 exchanges (6 messages)
-            if hasattr(msg, 'content'):
-                role = "User" if msg.__class__.__name__ == "HumanMessage" else "AI"
-                history_context += f"{role}: {msg.content}\n"
+   
+    
     
     prompt = f"""You are a compassionate mental health support chatbot.
     Current user message: {user_input}
     Detected sentiment: {sentiment_analysis['sentiment']} (polarity: {sentiment_analysis['polarity']:.2f})
     
-    Previous conversation context:
-    {history_context}
+    
     
     Guidelines:
     1. Be empathetic and understanding
@@ -135,9 +129,7 @@ def generate_response(user_input, session_id):
         response = gemini_model.generate_content(prompt)
         ai_response = response.text
         
-        # Save to memory
-        memory.chat_memory.add_user_message(user_input)
-        memory.chat_memory.add_ai_message(ai_response)
+       
         
         return ai_response, sentiment_analysis
     except Exception as e:
@@ -280,15 +272,39 @@ def query_doctors():
     data = request.json
     user_query = data.get('query')
     doctors_list = data.get('doctors', [])
+    
     if not user_query or not doctors_list:
         return jsonify({"error": "Both 'query' and 'doctors' are required"}), 400
 
     vectordb = load_or_create_vectorstore(doctors_list)
     retriever = vectordb.as_retriever(search_kwargs={"k": 3})
-    qa_chain = RetrievalQA.from_chain_type(llm=groq_llm, chain_type="stuff", retriever=retriever)
-    answer_text = qa_chain.run(user_query)
 
-    retrieved_docs = retriever.get_relevant_documents(user_query)
+    # NEW Prompt
+    prompt = PromptTemplate.from_template("""
+    Use the context below to answer the doctor's query.
+
+    Context:
+    {context}
+
+    Question:
+    {question}
+
+    Answer:
+    """)
+
+    # NEW Retrieval Chain (No RetrievalQA)
+    retrieval_chain = (
+        {"context": retriever, "question": RunnablePassthrough()}
+        | prompt
+        | groq_llm
+    )
+
+    answer_text = retrieval_chain.invoke(user_query)
+    
+    # Convert AIMessage to string content
+    answer_text = answer_text.content if hasattr(answer_text, "content") else str(answer_text)
+
+    retrieved_docs = retriever.invoke(user_query)
     user_ids = []
     for doc in retrieved_docs:
         try:
