@@ -9,6 +9,13 @@ const BookAppointment = () => {
   const [error, setError] = useState(null)
   const [allCounselors, setAllCounselors] = useState([])
   const [aiResponse, setAiResponse] = useState('')
+  const [selectedCounselor, setSelectedCounselor] = useState(null)
+  const [availableSlots, setAvailableSlots] = useState([])
+  const [loadingSlots, setLoadingSlots] = useState(false)
+  const [selectedSlot, setSelectedSlot] = useState(null)
+  const [bookingLoading, setBookingLoading] = useState(false)
+  const [bookingSuccess, setBookingSuccess] = useState(false)
+  const [showBookingModal, setShowBookingModal] = useState(false)
   
   // Fetch all counselors when component mounts
   useEffect(() => {
@@ -39,6 +46,8 @@ const BookAppointment = () => {
     setError(null)
     setCounselors(null)
     setAiResponse('')
+    setSelectedCounselor(null)
+    setAvailableSlots([])
 
     try {
       // Call the AI matching API
@@ -91,6 +100,101 @@ const BookAppointment = () => {
     } finally {
       setLoading(false)
     }
+  }
+
+  const fetchAvailableSlots = async (counselorUserId) => {
+    setLoadingSlots(true)
+    setError(null)
+    try {
+      const response = await fetch(`${API_BASE}/api/appointments/counselor/${counselorUserId}/slots`)
+      if (!response.ok) throw new Error('Failed to fetch available slots')
+      
+      const data = await response.json()
+      setAvailableSlots(data.slots || [])
+      
+      if (data.slots.length === 0) {
+        setError('No available slots for this counselor at the moment.')
+      }
+    } catch (err) {
+      console.error('Error fetching slots:', err)
+      setError('Failed to load available time slots. Please try again.')
+    } finally {
+      setLoadingSlots(false)
+    }
+  }
+
+  const handleSelectCounselor = (counselor) => {
+    setSelectedCounselor(counselor)
+    setSelectedSlot(null)
+    fetchAvailableSlots(counselor.user_id)
+  }
+
+  const handleBookAppointment = async () => {
+    if (!selectedSlot || !selectedCounselor) {
+      setError('Please select a time slot')
+      return
+    }
+
+    setBookingLoading(true)
+    setError(null)
+
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) {
+        setError('Please log in to book an appointment')
+        return
+      }
+
+      const response = await fetch(`${API_BASE}/api/appointments/book`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          token: token
+        },
+        body: JSON.stringify({
+          counselorUserId: selectedCounselor.user_id,
+          slotId: selectedSlot.id
+        })
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.message || 'Failed to book appointment')
+      }
+
+      const data = await response.json()
+      setBookingSuccess(true)
+      setShowBookingModal(true)
+      
+      // Refresh slots after booking
+      setTimeout(() => {
+        fetchAvailableSlots(selectedCounselor.user_id)
+        setSelectedSlot(null)
+      }, 2000)
+
+    } catch (err) {
+      console.error('Error booking appointment:', err)
+      setError(err.message || 'Failed to book appointment. Please try again.')
+    } finally {
+      setBookingLoading(false)
+    }
+  }
+
+  const formatDateTime = (dateString) => {
+    const date = new Date(dateString)
+    return date.toLocaleString('en-US', {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
+  const closeModal = () => {
+    setShowBookingModal(false)
+    setBookingSuccess(false)
   }
 
   return (
@@ -150,7 +254,7 @@ const BookAppointment = () => {
       )}
 
       {/* Counselors List */}
-      {counselors && counselors.length > 0 && (
+      {counselors && counselors.length > 0 && !selectedCounselor && (
         <div className="max-w-4xl mx-auto">
           <h2 className="text-2xl font-bold mb-6 text-yellow">Recommended Counselors</h2>
           <div className="grid gap-6 md:grid-cols-2">
@@ -163,13 +267,119 @@ const BookAppointment = () => {
                   <span className="text-gray">Experience: {counselor.years_of_experience} years</span>
                 </div>
                 <button 
-                  onClick={() => alert('Booking functionality coming soon!')}
+                  onClick={() => handleSelectCounselor(counselor)}
                   className="mt-4 w-full bg-yellow text-black rounded-xl px-4 py-2 font-semibold hover:opacity-90 transition duration-200"
                 >
-                  Schedule Session
+                  View Available Slots
                 </button>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Slot Selection */}
+      {selectedCounselor && (
+        <div className="max-w-4xl mx-auto">
+          <button
+            onClick={() => {
+              setSelectedCounselor(null)
+              setAvailableSlots([])
+              setSelectedSlot(null)
+            }}
+            className="mb-4 text-yellow hover:text-white transition duration-200 flex items-center gap-2"
+          >
+            ← Back to Counselors
+          </button>
+
+          <div className="bg-blue rounded-2xl p-6 border border-gray mb-6">
+            <h3 className="text-2xl font-semibold mb-2">{selectedCounselor.name}</h3>
+            <p className="text-yellow mb-2">{selectedCounselor.specialization}</p>
+            <p className="text-sm text-gray mb-4">{selectedCounselor.bio}</p>
+            <div className="flex items-center text-sm">
+              <span className="text-gray">Experience: {selectedCounselor.years_of_experience} years</span>
+            </div>
+          </div>
+
+          <h3 className="text-xl font-bold mb-4 text-yellow">Available Time Slots</h3>
+
+          {loadingSlots ? (
+            <div className="flex justify-center items-center py-12">
+              <span className="w-8 h-8 border-4 border-yellow border-t-transparent rounded-full animate-spin"></span>
+            </div>
+          ) : availableSlots.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mb-6">
+              {availableSlots.map((slot) => (
+                <button
+                  key={slot.id}
+                  onClick={() => setSelectedSlot(slot)}
+                  className={`p-4 rounded-xl border-2 transition duration-200 text-left ${
+                    selectedSlot?.id === slot.id
+                      ? 'border-yellow bg-yellow/10'
+                      : 'border-gray bg-black hover:border-yellow/50'
+                  }`}
+                >
+                  <div className="text-sm text-gray mb-1">Start Time</div>
+                  <div className="font-semibold">{formatDateTime(slot.start_time)}</div>
+                  <div className="text-sm text-gray mt-2 mb-1">End Time</div>
+                  <div className="font-semibold">{formatDateTime(slot.end_time)}</div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-blue/50 rounded-xl p-8 text-center border border-gray">
+              <p className="text-gray">No available slots at the moment. Please check back later or choose another counselor.</p>
+            </div>
+          )}
+
+          {selectedSlot && (
+            <div className="bg-gradient-to-r from-yellow/10 to-green-400/10 rounded-2xl p-6 border border-yellow">
+              <h4 className="text-lg font-semibold mb-2 text-yellow">Selected Appointment</h4>
+              <p className="mb-1"><span className="text-gray">Counselor:</span> {selectedCounselor.name}</p>
+              <p className="mb-1"><span className="text-gray">Date & Time:</span> {formatDateTime(selectedSlot.start_time)}</p>
+              <p className="mb-4"><span className="text-gray">Duration:</span> {formatDateTime(selectedSlot.end_time)}</p>
+              
+              <button
+                onClick={handleBookAppointment}
+                disabled={bookingLoading}
+                className="w-full bg-gradient-to-r from-green-400 to-emerald-500 text-white rounded-xl px-6 py-3 font-semibold hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition duration-200 flex items-center justify-center gap-2"
+              >
+                {bookingLoading ? (
+                  <>
+                    <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                    Booking...
+                  </>
+                ) : (
+                  "Confirm Booking"
+                )}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Booking Success Modal */}
+      {showBookingModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
+          <div className="bg-blue rounded-2xl p-8 max-w-md w-full border border-yellow animate-fade-in">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h3 className="text-2xl font-bold mb-2 text-yellow">Booking Confirmed!</h3>
+              <p className="text-gray mb-6">
+                Your appointment with {selectedCounselor?.name} has been successfully booked.
+                You'll receive a confirmation shortly.
+              </p>
+              <button
+                onClick={closeModal}
+                className="w-full bg-yellow text-black rounded-xl px-6 py-3 font-semibold hover:opacity-90 transition duration-200"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

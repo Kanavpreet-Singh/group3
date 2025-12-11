@@ -16,14 +16,15 @@ export default function Profile() {
   useEffect(() => {
     const fetchAppointments = async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/users/appointments`, {
+        const token = localStorage.getItem("token");
+        const res = await fetch(`${API_BASE}/api/appointments/user`, {
           headers: {
-            token: localStorage.getItem("token"),
+            token: token,
           },
         });
         const data = await res.json();
         if (res.ok) {
-          setAppointments(data);
+          setAppointments(data.appointments || []);
         } else {
           console.error("Error:", data.message);
         }
@@ -67,19 +68,28 @@ export default function Profile() {
         <div>
           <h2 className="text-2xl font-bold text-yellow mb-6">
             {currentUser?.role === "student"
-              ? "My Upcoming Appointments"
+              ? "My Appointments"
               : "My Counseling Sessions"}
           </h2>
 
           {loading ? (
-            <p className="text-gray">Loading...</p>
+            <div className="flex justify-center py-8">
+              <span className="w-8 h-8 border-4 border-yellow border-t-transparent rounded-full animate-spin"></span>
+            </div>
           ) : appointments.length === 0 ? (
-            <p className="text-gray">No upcoming appointments</p>
+            <div className="bg-blue/50 rounded-lg p-8 text-center">
+              <p className="text-gray">No appointments found</p>
+            </div>
           ) : (
             <div className="space-y-4">
               {appointments.map((appt) => {
                 const dateObj = new Date(appt.appointment_time);
-                const date = dateObj.toLocaleDateString();
+                const date = dateObj.toLocaleDateString('en-US', {
+                  weekday: 'short',
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric'
+                });
                 const time = dateObj.toLocaleTimeString([], {
                   hour: "2-digit",
                   minute: "2-digit",
@@ -88,31 +98,72 @@ export default function Profile() {
                 return (
                   <div
                     key={appt.id}
-                    className="bg-blue rounded-lg shadow p-4 flex justify-between items-center"
+                    className="bg-blue rounded-lg shadow p-4 flex justify-between items-center border border-gray hover:border-yellow/50 transition duration-200"
                   >
-                    <div>
+                    <div className="flex-1">
                       {currentUser?.role === "student" ? (
                         <p className="font-semibold text-yellow">
-                          Dr. {appt.counselor_name} ({appt.specialization})
+                          {appt.counselor_name}
                         </p>
                       ) : (
                         <p className="font-semibold text-yellow">
-                          {appt.student_name} ({appt.student_email})
+                          {appt.student_name}
                         </p>
                       )}
-                      <p className="text-gray text-sm">
+                      {currentUser?.role === "student" && appt.specialization && (
+                        <p className="text-sm text-gray-400">{appt.specialization}</p>
+                      )}
+                      {currentUser?.role === "counselor" && appt.student_email && (
+                        <p className="text-sm text-gray-400">{appt.student_email}</p>
+                      )}
+                      <p className="text-gray text-sm mt-1">
                         {date} at {time}
                       </p>
                     </div>
-                    <span
-                      className={`px-3 py-1 rounded-full text-sm font-medium ${
-                        appt.status === "confirmed"
-                          ? "bg-green text-black"
-                          : "bg-gray text-black"
-                      }`}
-                    >
-                      {appt.status}
-                    </span>
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`px-3 py-1 rounded-full text-sm font-medium ${
+                          appt.status === "scheduled"
+                            ? "bg-green-500 text-white"
+                            : appt.status === "completed"
+                            ? "bg-blue-500 text-white"
+                            : "bg-red-500 text-white"
+                        }`}
+                      >
+                        {appt.status}
+                      </span>
+                      {appt.status === "scheduled" && (
+                        <button
+                          onClick={async () => {
+                            if (window.confirm('Are you sure you want to cancel this appointment?')) {
+                              try {
+                                const token = localStorage.getItem("token");
+                                const res = await fetch(`${API_BASE}/api/appointments/cancel/${appt.id}`, {
+                                  method: 'PATCH',
+                                  headers: {
+                                    token: token,
+                                  },
+                                });
+                                if (res.ok) {
+                                  setAppointments(appointments.map(a => 
+                                    a.id === appt.id ? { ...a, status: 'cancelled' } : a
+                                  ));
+                                } else {
+                                  const data = await res.json();
+                                  alert(data.message || 'Failed to cancel appointment');
+                                }
+                              } catch (err) {
+                                console.error('Error cancelling appointment:', err);
+                                alert('Failed to cancel appointment');
+                              }
+                            }
+                          }}
+                          className="text-red-400 hover:text-red-300 text-sm font-medium transition duration-200"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </div>
                   </div>
                 );
               })}
