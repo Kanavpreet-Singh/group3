@@ -7,6 +7,7 @@ const userRoutes = require('./routes/userRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const blogRoutes = require('./routes/blogRoutes');
 const appointmentRoutes = require('./routes/appointmentRoutes');
+const connectRoutes = require('./routes/connectRoutes');
 
 const app = express();
 app.use(cors());
@@ -47,3 +48,4 @@ app.use('/api/users', userRoutes);
 app.use('/api/chats', chatRoutes);
 app.use('/api/blogs', blogRoutes);
 app.use('/api/appointments', appointmentRoutes);
+app.use('/api/connect', connectRoutes);

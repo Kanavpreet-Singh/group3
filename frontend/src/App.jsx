@@ -11,6 +11,7 @@ import Blogs from "./pages/Blogs";
 import BookAppointment from "./pages/BookAppointment";
 import AddSlots from "./pages/AddSlots";
 import Profile from "./pages/Profile";
+import Connect from "./pages/Connect";
 
 function App() {
   return (
@@ -27,6 +28,7 @@ function App() {
         <Route path="/book" element={<BookAppointment />} />
         <Route path="/addslot" element={<AddSlots />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/connect" element={<Connect />} />
       </Routes>
 
       <Footer />

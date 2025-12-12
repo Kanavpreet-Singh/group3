@@ -40,6 +40,7 @@ export default function Navbar() {
             <Link to="/" className="hover:text-yellow-400 transition">Home</Link>
             <Link to="/askai" className="hover:text-yellow-400 transition">AskAI</Link>
             <Link to="/blogs" className="hover:text-yellow-400 transition">Blogs</Link>
+            <Link to="/connect" className="hover:text-yellow-400 transition">Connect</Link>
 
             {!isLoggedIn && (
               <>
@@ -100,6 +101,7 @@ export default function Navbar() {
           <Link to="/" className="block text-gray-400 hover:text-yellow-400 transition">Home</Link>
           <Link to="/askai" className="block text-gray-400 hover:text-yellow-400 transition">AskAI</Link>
           <Link to="/blogs" className="block text-gray-400 hover:text-yellow-400 transition">Blogs</Link>
+          <Link to="/connect" className="block text-gray-400 hover:text-yellow-400 transition">Connect</Link>
 
           {!isLoggedIn && (
             <>
